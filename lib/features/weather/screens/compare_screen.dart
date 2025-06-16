@@ -336,55 +336,66 @@ class _CityComparisonScreenState extends State<CityComparisonScreen>
                         ],
                       ),
                       const SizedBox(height: 12),
-                      Row(
-                        children: [
-                          AnimatedContainer(
-                            duration: const Duration(milliseconds: 300),
-                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                            decoration: BoxDecoration(
-                              color: provider.citiesWeather.length >= 5
-                                  ? Colors.red[100]
-                                  : _accentColor.withOpacity(0.1),
-                              borderRadius: BorderRadius.circular(8),
-                            ),
-                            child: Text(
-                              'Cities: ${provider.citiesWeather.length}/5',
-                              style: TextStyle(
-                                fontSize: 14,
-                                color: provider.citiesWeather.length >= 5
-                                    ? Colors.red[600]
-                                    : _accentColor,
-                                fontWeight: FontWeight.w500,
-                              ),
-                            ),
-                          ),
-                          if (_userCity != null) ...[
-                            const SizedBox(width: 16),
+                      // Wrap the entire row in a container with width constraint
+                      SizedBox(
+                        width: double.infinity,
+                        child: Wrap(
+                          spacing: 12,
+                          runSpacing: 8,
+                          children: [
                             AnimatedContainer(
                               duration: const Duration(milliseconds: 300),
                               padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                               decoration: BoxDecoration(
-                                color: _accentColor.withOpacity(0.1),
+                                color: provider.citiesWeather.length >= 5
+                                    ? Colors.red[100]
+                                    : _accentColor.withOpacity(0.1),
                                 borderRadius: BorderRadius.circular(8),
                               ),
-                              child: Row(
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  Icon(Icons.location_on, color: _accentColor, size: 16),
-                                  const SizedBox(width: 4),
-                                  Text(
-                                    _isLoadingUserLocation ? 'Getting location...' : _userCity!,
-                                    style: TextStyle(
-                                      fontSize: 14,
-                                      color: _accentColor,
-                                      fontWeight: FontWeight.w500,
-                                    ),
-                                  ),
-                                ],
+                              child: Text(
+                                'Cities: ${provider.citiesWeather.length}/5',
+                                style: TextStyle(
+                                  fontSize: 14,
+                                  color: provider.citiesWeather.length >= 5
+                                      ? Colors.red[600]
+                                      : _accentColor,
+                                  fontWeight: FontWeight.w500,
+                                ),
                               ),
                             ),
+                            if (_userCity != null)
+                              AnimatedContainer(
+                                duration: const Duration(milliseconds: 300),
+                                constraints: BoxConstraints(
+                                  maxWidth: MediaQuery.of(context).size.width * 0.5, // Limit width
+                                ),
+                                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                decoration: BoxDecoration(
+                                  color: _accentColor.withOpacity(0.1),
+                                  borderRadius: BorderRadius.circular(8),
+                                ),
+                                child: Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    Icon(Icons.location_on, color: _accentColor, size: 16),
+                                    const SizedBox(width: 4),
+                                    Flexible(
+                                      child: Text(
+                                        _isLoadingUserLocation ? 'Getting location...' : _userCity!,
+                                        style: TextStyle(
+                                          fontSize: 14,
+                                          color: _accentColor,
+                                          fontWeight: FontWeight.w500,
+                                        ),
+                                        overflow: TextOverflow.ellipsis,
+                                        maxLines: 1,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
                           ],
-                        ],
+                        ),
                       ),
                     ],
                   ),
@@ -527,7 +538,11 @@ class _CityComparisonScreenState extends State<CityComparisonScreen>
                               return AnimatedContainer(
                                 duration: Duration(milliseconds: 300 + (index * 100)),
                                 curve: Curves.easeOutBack,
-                                width: 280,
+                                width: MediaQuery.of(context).size.width * 0.75, // Responsive width
+                                constraints: BoxConstraints(
+                                  minWidth: 250,
+                                  maxWidth: 320,
+                                ),
                                 margin: EdgeInsets.only(
                                   right: index == provider.citiesWeather.length - 1 ? 0 : 16,
                                 ),
@@ -570,54 +585,69 @@ class _CityComparisonScreenState extends State<CityComparisonScreen>
                                               child: Column(
                                                 crossAxisAlignment: CrossAxisAlignment.start,
                                                 children: [
-                                                  Row(
-                                                    children: [
-                                                      if (isUserCity) ...[
-                                                        Container(
-                                                          padding: const EdgeInsets.all(4),
-                                                          decoration: BoxDecoration(
-                                                            color: _accentColor.withOpacity(0.1),
-                                                            borderRadius: BorderRadius.circular(6),
-                                                          ),
-                                                          child: Icon(Icons.location_on, color: _accentColor, size: 18),
+                                                  // Fixed header section with proper overflow handling
+                                                  Container(
+                                                    width: double.infinity,
+                                                    padding: EdgeInsets.only(right: !isUserCity ? 35 : 0), // Space for close button
+                                                    child: Column(
+                                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                                      children: [
+                                                        Row(
+                                                          mainAxisSize: MainAxisSize.min,
+                                                          children: [
+                                                            if (isUserCity) ...[
+                                                              Container(
+                                                                padding: const EdgeInsets.all(4),
+                                                                decoration: BoxDecoration(
+                                                                  color: _accentColor.withOpacity(0.1),
+                                                                  borderRadius: BorderRadius.circular(6),
+                                                                ),
+                                                                child: Icon(Icons.location_on, color: _accentColor, size: 18),
+                                                              ),
+                                                              const SizedBox(width: 8),
+                                                            ],
+                                                            Expanded(
+                                                              child: Text(
+                                                                weather.cityName,
+                                                                style: TextStyle(
+                                                                  fontSize: 18,
+                                                                  fontWeight: FontWeight.bold,
+                                                                  color: isUserCity ? _accentColor : _textColor,
+                                                                ),
+                                                                overflow: TextOverflow.ellipsis,
+                                                                maxLines: 1,
+                                                                softWrap: false,
+                                                              ),
+                                                            ),
+                                                          ],
                                                         ),
-                                                        const SizedBox(width: 8),
+                                                        if (isUserCity) ...[
+                                                          const SizedBox(height: 6),
+                                                          Container(
+                                                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                                                            decoration: BoxDecoration(
+                                                              color: _accentColor.withOpacity(0.1),
+                                                              borderRadius: BorderRadius.circular(8),
+                                                            ),
+                                                            child: Text(
+                                                              'Your Location',
+                                                              style: TextStyle(
+                                                                fontSize: 12,
+                                                                color: _accentColor,
+                                                                fontWeight: FontWeight.w500,
+                                                              ),
+                                                            ),
+                                                          ),
+                                                        ],
                                                       ],
-                                                      Expanded(
-                                                        child: Text(
-                                                          weather.cityName,
-                                                          style: TextStyle(
-                                                            fontSize: 18,
-                                                            fontWeight: FontWeight.bold,
-                                                            color: isUserCity ? _accentColor : _textColor,
-                                                          ),
-                                                          overflow: TextOverflow.ellipsis,
-                                                        ),
-                                                      ),
-                                                    ],
-                                                  ),
-                                                  if (isUserCity) ...[
-                                                    const SizedBox(height: 4),
-                                                    Container(
-                                                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                                                      decoration: BoxDecoration(
-                                                        color: _accentColor.withOpacity(0.1),
-                                                        borderRadius: BorderRadius.circular(8),
-                                                      ),
-                                                      child: Text(
-                                                        'Your Location',
-                                                        style: TextStyle(
-                                                          fontSize: 12,
-                                                          color: _accentColor,
-                                                          fontWeight: FontWeight.w500,
-                                                        ),
-                                                      ),
                                                     ),
-                                                  ],
+                                                  ),
                                                   const SizedBox(height: 12),
                                                   // Flexible container for WeatherCard
                                                   Expanded(
-                                                    child: WeatherCard(weather: weather),
+                                                    child: ClipRect(
+                                                      child: WeatherCard(weather: weather),
+                                                    ),
                                                   ),
                                                 ],
                                               ),

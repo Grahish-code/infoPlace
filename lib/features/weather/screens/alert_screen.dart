@@ -1,25 +1,53 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import '../providers/weather_provider.dart';
+import '../../../core/services/weather_services.dart';
+import '../providers/alert_provider.dart';
 import '../models/alert_model.dart';
 import 'package:intl/intl.dart';
 
-class AlertScreen extends StatelessWidget {
+class AlertScreen extends StatefulWidget {
   const AlertScreen({super.key});
 
-  String _formatTime(DateTime date) {
-    return DateFormat('dd MMM, hh:mm a').format(date);
+  @override
+  State<AlertScreen> createState() => _AlertScreenState();
+}
+
+class _AlertScreenState extends State<AlertScreen> {
+  bool _isLoading = false;
+
+  @override
+  void initState() {
+    super.initState();
+    // Fetch alerts when screen loads
+    setState(() {
+      _isLoading = true;
+    });
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      fetchAndUpdateAlerts(
+        context,
+        lat: 18.983,
+        lon: 73.1,
+        notifyUser: true,
+      ).then((_) {
+        setState(() {
+          _isLoading = false;
+        });
+      });
+    });
   }
 
   @override
   Widget build(BuildContext context) {
-    final alerts = Provider.of<WeatherProvider>(context).alerts;
+    final alertProvider = Provider.of<AlertProvider>(context);
+    final alerts = alertProvider.alerts;
 
     return Scaffold(
       appBar: AppBar(
         title: const Text('Weather Alerts'),
       ),
-      body: alerts.isEmpty
+      body: _isLoading
+          ? const Center(child: CircularProgressIndicator())
+          : alerts.isEmpty
           ? const Center(child: Text('No alerts available'))
           : ListView.builder(
         itemCount: alerts.length,
@@ -40,15 +68,15 @@ class AlertScreen extends StatelessWidget {
                   ),
                   const SizedBox(height: 6),
                   Text(
-                    'By: ${alert.sender ?? 'Unknown'}',
+                    'By: ${alert.sender}',
                     style: const TextStyle(color: Colors.grey),
                   ),
                   const SizedBox(height: 10),
                   Text(alert.description),
                   const SizedBox(height: 10),
                   Text(
-                    'From: ${alert.start != null ? _formatTime(alert.start! as DateTime) : 'N/A'}\n'
-                        'To: ${alert.end != null ? _formatTime(alert.end! as DateTime) : 'N/A'}',
+                    'From: ${alert.start != 0 ? _formatTime(alert.start) : 'N/A'}\n'
+                        'To: ${alert.end != 0 ? _formatTime(alert.end) : 'N/A'}',
                     style: const TextStyle(fontStyle: FontStyle.italic),
                   ),
                 ],
@@ -58,5 +86,32 @@ class AlertScreen extends StatelessWidget {
         },
       ),
     );
+  }
+
+  String _formatTime(int timestamp) {
+    final date = DateTime.fromMillisecondsSinceEpoch(timestamp * 1000);
+    return DateFormat('dd MMM, hh:mm a').format(date);
+  }
+
+  Future<void> fetchAndUpdateAlerts(
+      BuildContext context, {
+        required double lat,
+        required double lon,
+        bool notifyUser = true,
+      }) async {
+    try {
+      final alerts = await WeatherService.checkWeatherAlert(
+        lat: lat,
+        lon: lon,
+        notifyUser: notifyUser,
+      );
+      Provider.of<AlertProvider>(context, listen: false).updateAlerts(alerts);
+      print('Successfully updated ${alerts.length} alerts');
+    } catch (e) {
+      print('Error fetching alerts: $e');
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Failed to load alerts: $e')),
+      );
+    }
   }
 }

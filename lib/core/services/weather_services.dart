@@ -8,12 +8,12 @@ import '../constants/api_constants.dart';
 import 'notification_services.dart';
 import 'alert_cache.dart';
 
-
 class WeatherService {
   /// Fetch 5-day forecast data
   static Future<ForecastModel> getForecast(double lat, double lon) async {
     final url =
-        '${ApiConstants.baseUrl}forecast?lat=$lat&lon=$lon&appid=${ApiConstants.apiKey}&units=metric';
+        '${ApiConstants.baseUrl}forecast?lat=$lat&lon=$lon&appid=${ApiConstants
+        .apiKey}&units=metric';
 
     try {
       final response = await http.get(Uri.parse(url));
@@ -37,68 +37,123 @@ class WeatherService {
   /// Fetch current weather for a given city
   static Future<Weather> getWeatherByCity(String cityName) async {
     final url =
-        'https://api.openweathermap.org/data/2.5/weather?q=$cityName&appid=${ApiConstants.apiKey}&units=metric';
+        'https://api.openweathermap.org/data/2.5/weather?q=$cityName&appid=${ApiConstants
+        .apiKey}&units=metric';
 
     try {
       final response = await http.get(Uri.parse(url));
       if (response.statusCode == 200) {
         print("Weather API response: ${response.body}");
         final json = response.body;
-        await WeatherCache.saveWeather(json); // ✅ Save to cache
+
+        // Save original API response with timestamp
+        await _cacheWeatherWithTimestamp(json);
+
         return Weather.fromJson(jsonDecode(json));
       } else {
         throw Exception('Failed to load weather for $cityName');
       }
     } catch (e) {
+      print('Error fetching weather: $e');
       final cached = await WeatherCache.getWeather();
       if (cached != null) {
         print('⚠️ Loaded weather from cache');
-        return Weather.fromJson(jsonDecode(cached));
+        final cachedData = jsonDecode(cached);
+
+        // Extract the original API data (without cached_at)
+        final apiData = Map<String, dynamic>.from(cachedData);
+        apiData.remove('cached_at'); // Remove our custom field
+
+        return Weather.fromJson(apiData);
       }
       throw Exception('No weather data available');
     }
   }
 
-  /// 🚨 Check for weather alerts
+  /// Cache weather data with timestamp while preserving original format
+  static Future<void> _cacheWeatherWithTimestamp(String originalJson) async {
+    try {
+      final originalData = jsonDecode(originalJson);
+
+      // Add timestamp to original data
+      originalData['cached_at'] = DateTime.now().toIso8601String();
+
+      await WeatherCache.saveWeather(jsonEncode(originalData));
+    } catch (e) {
+      print('Error caching weather data: $e');
+    }
+  }
+
+  /// Get cache timestamp if available
+  static Future<DateTime?> getCacheTimestamp() async {
+    try {
+      final cached = await WeatherCache.getWeather();
+      if (cached != null) {
+        final cachedData = jsonDecode(cached);
+        if (cachedData['cached_at'] != null) {
+          return DateTime.tryParse(cachedData['cached_at']);
+        }
+      }
+    } catch (e) {
+      print('Error getting cache timestamp: $e');
+    }
+    return null;
+  }
+
+  /// Check for weather alerts
   static Future<List<WeatherAlert>> checkWeatherAlert({
     required double lat,
     required double lon,
     bool notifyUser = true,
   }) async {
     final url =
-        'https://api.weatherapi.com/v1/forecast.json?key=f9a5f6215f0c487f81a52241251406&&q=Mumbai&days=1&alerts=yes';
+        'https://api.weatherapi.com/v1/forecast.json?key=f9a5f6215f0c487f81a52241251406&q=$lat,$lon&days=1&alerts=yes';
 
-    final response = await http.get(Uri.parse(url));
+    try {
+      final response = await http.get(Uri.parse(url));
+      print('Weather alert API response: ${response.body}');
 
-    if (response.statusCode == 200) {
-      final data = jsonDecode(response.body);
-      final List<WeatherAlert> alerts = [];
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        final List<WeatherAlert> alerts = [];
 
-      if (data['alerts'] != null &&
-          data['alerts']['alert'] != null &&
-          data['alerts']['alert'] is List) {
-        final lastAlertId = await AlertCache.getLastAlertId();
+        if (data['alerts'] != null &&
+            data['alerts']['alert'] != null &&
+            data['alerts']['alert'] is List) {
+          print('Found ${data['alerts']['alert'].length} alerts in response');
+          final lastAlertId = await AlertCache.getLastAlertId();
 
-        for (var alertJson in data['alerts']['alert']) {
-          final alert = WeatherAlert.fromJson(alertJson);
-          alerts.add(alert);
+          for (var alertJson in data['alerts']['alert']) {
+            try {
+              final alert = WeatherAlert.fromJson(alertJson);
+              alerts.add(alert);
+              print('Parsed alert: ${alert.event}, ${alert.description}');
 
-          final currentId = alert.event + alert.description;
+              final currentId = alert.event + alert.description;
 
-          if (notifyUser && currentId != lastAlertId) {
-            await NotificationService.showNotification(
-              title: alert.event,
-              body: alert.description,
-            );
-
-            await AlertCache.setLastAlertId(currentId);
+              if (notifyUser && currentId != lastAlertId) {
+                print('Sending notification for alert: ${alert.event}');
+                await NotificationService.showNotification(
+                  title: alert.event,
+                  body: alert.description,
+                );
+                await AlertCache.setLastAlertId(currentId);
+              }
+            } catch (e) {
+              print('Error parsing alert: $e, Alert JSON: $alertJson');
+            }
           }
+        } else {
+          print('No alerts found in response: alerts field is ${data['alerts']}');
         }
-      }
 
-      return alerts;
-    } else {
-      throw Exception('Failed to fetch weather alerts : ${response.body}');
+        return alerts;
+      } else {
+        throw Exception('Failed to fetch weather alerts: ${response.body}');
+      }
+    } catch (e) {
+      print('Error fetching alerts: $e');
+      return [];
     }
   }
 }

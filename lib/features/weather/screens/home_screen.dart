@@ -4,7 +4,9 @@ import 'package:flutter/material.dart';
 import 'package:infoplace/features/weather/screens/weather_cache.dart';
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
+import '../../../core/services/weather_services.dart';
 import '../../news/screens/home_scree_news.dart';
+import '../providers/alert_provider.dart';
 import '../providers/weather_provider.dart';
 import '../providers/forecast_provider.dart';
 import 'alert_screen.dart';
@@ -30,6 +32,29 @@ class _HomeScreenState extends State<HomeScreen> {
       _initializeWeatherData();
     });
   }
+
+  Future<void> fetchAndUpdateAlerts(
+      BuildContext context, {
+        required double lat,
+        required double lon,
+        bool notifyUser = true,
+      }) async {
+    try {
+      final alerts = await WeatherService.checkWeatherAlert(
+        lat: lat,
+        lon: lon,
+        notifyUser: notifyUser,
+      );
+      Provider.of<AlertProvider>(context, listen: false).updateAlerts(alerts);
+      print('Successfully updated ${alerts.length} alerts');
+    } catch (e) {
+      print('Error fetching alerts: $e');
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Failed to load alerts: $e')),
+      );
+    }
+  }
+
 
   Future<void> _initializeWeatherData() async {
     final weatherProvider = Provider.of<WeatherProvider>(context, listen: false);
@@ -102,12 +127,18 @@ class _HomeScreenState extends State<HomeScreen> {
   Future<void> _cacheWeatherData(dynamic weather) async {
     try {
       final weatherMap = {
-        'temperature': weather.temperature,
-        'description': weather.description,
-        'cityName': weather.cityName,
-        'iconCode': weather.iconCode,
-        'lat': weather.lat,
-        'lon': weather.lon,
+        'name': weather.cityName,
+        'main': {'temp': weather.temperature},
+        'weather': [
+          {
+            'description': weather.description,
+            'icon': weather.iconCode,
+          }
+        ],
+        'coord': {
+          'lat': weather.lat,
+          'lon': weather.lon,
+        },
         'cached_at': DateTime.now().toIso8601String(),
       };
       await WeatherCache.saveWeather(json.encode(weatherMap));

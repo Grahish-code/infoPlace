@@ -14,12 +14,21 @@ class WeatherAlert {
   });
 
   factory WeatherAlert.fromJson(Map<String, dynamic> json) {
-    return WeatherAlert(
-      event: json['event'] ?? 'Unknown Event',
-      sender: json['headline'] ?? 'Weather Department',
-      description: json['desc'] ?? 'No Description',
-      start: DateTime.parse(json['effective']).millisecondsSinceEpoch ~/ 1000,
-      end: DateTime.parse(json['expires']).millisecondsSinceEpoch ~/ 1000,
-    );
+    try {
+      return WeatherAlert(
+        event: json['event']?.toString() ?? 'Unknown Event',
+        sender: json['headline']?.toString() ?? 'Weather Department',
+        description: json['desc']?.toString() ?? 'No Description',
+        start: json['effective'] != null
+            ? DateTime.tryParse(json['effective'])!.millisecondsSinceEpoch ~/ 1000 ?? 0
+            : 0,
+        end: json['expires'] != null
+            ? DateTime.tryParse(json['expires'])!.millisecondsSinceEpoch ~/ 1000 ?? 0
+            : 0,
+      );
+    } catch (e) {
+      print('Error parsing WeatherAlert: $e, JSON: $json');
+      rethrow; // Rethrow to catch in checkWeatherAlert
+    }
   }
 }

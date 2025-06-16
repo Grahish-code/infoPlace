@@ -9,7 +9,10 @@ class WeatherRepository {
 
   Future<Weather> getCurrentWeather() async {
     final position = await LocationService.getCurrentLocation();
-    final weather = await remoteDataSource.fetchCurrentWeather(position.latitude, position.longitude);
+    final weather = await remoteDataSource.fetchCurrentWeather(
+      position.latitude,
+      position.longitude,
+    );
 
     final prefs = await SharedPreferences.getInstance();
     prefs.setString('cached_weather', json.encode({
@@ -20,11 +23,16 @@ class WeatherRepository {
           'description': weather.description,
           'icon': weather.iconCode,
         }
-      ]
+      ],
+      'coord': {
+        'lat': weather.lat,
+        'lon': weather.lon
+      }
     }));
 
     return weather;
   }
+
 
   Future<Weather?> getCachedWeather() async {
     final prefs = await SharedPreferences.getInstance();

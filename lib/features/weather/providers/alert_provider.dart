@@ -11,6 +11,13 @@ class AlertProvider with ChangeNotifier {
     notifyListeners();
   }
 
+  void updateAlerts(List<WeatherAlert> newAlerts) {
+    _alerts.clear();
+    _alerts.addAll(newAlerts);
+    print('AlertProvider updated with ${newAlerts.length} alerts');
+    notifyListeners();
+  }
+
   void clearAlerts() {
     _alerts.clear();
     notifyListeners();
